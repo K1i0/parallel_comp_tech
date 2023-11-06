@@ -21,7 +21,7 @@ int main (int argc, char *argv[])
     double tsend = 0.0;
     double trecv = 0.0;
 
-    double total_time[2] = {0.0, 0.0}; //total_time time
+    double total_time; //total process operations time
 
     MPI_Init (&argc, &argv);
     MPI_Comm_size (MPI_COMM_WORLD, &commsize);
@@ -38,20 +38,22 @@ int main (int argc, char *argv[])
             MPI_Isend(buffer, count, MPI_UINT8_T, 1, 0, MPI_COMM_WORLD, &req);
             tsend = (MPI_Wtime() - tsend);
             printf("----->>>%d - %d  Время отправки: %.10f\n", i, rank, tsend);
-            total_time[0] += tsend;
+            total_time += tsend;
         } else if (rank == RECV_RANK) {
             trecv = MPI_Wtime();
             MPI_Irecv(buffer, count, MPI_UINT8_T, 0, 0, MPI_COMM_WORLD, &req);
             trecv = (MPI_Wtime() - trecv);
             printf("%d - %d  Время получения: %.10f<<<------\n", i, rank, trecv);
-            total_time[1] += trecv;
+            total_time += trecv;
         }
         MPI_Waitall(1, &req, MPI_STATUS_IGNORE);
     }
 
+    double global_time = 0.0; //global all processes operations time
+    MPI_Reduce(&total_time, &global_time, 1, MPI_DOUBLE, MPI_SUM, ROOT_RANK, MPI_COMM_WORLD);
     if (rank == ROOT_RANK) {
-        printf("Общее время (send/recv): %.10f (кол-во передач: %d)\n", total_time[0] + total_time[1], NUM_RUN);
-        printf("Среднее время выполнения операции обмена (send+recv): %.10f\n", (total_time[0] + total_time[1]) / NUM_RUN);
+        printf("Общее время (send/recv): %.10f (кол-во передач: %d)\n", global_time, NUM_RUN);
+        printf("Среднее время выполнения операции обмена (send+recv): %.10f\n", global_time / NUM_RUN);
     }
 
     free(buffer);
